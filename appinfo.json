@@ -1,0 +1,35 @@
+{
+    "resources": {
+        "media": [
+            {
+                "file": "images/base_lock.png",
+                "type": "png",
+                "name": "IMAGE_BASE_LOCK"
+            },
+            {
+                "file": "images/top_lock.png",
+                "type": "png",
+                "name": "IMAGE_TOP_LOCK"
+            }
+        ]
+    },
+    "uuid": "326fccb7-f378-4feb-a406-647eeeccb6c5",
+    "versionCode": 1,
+    "companyName": "hanlon",
+    "appKeys": {
+        "selectText": 50,
+        "lockName": 0,
+        "lockCount": 100,
+        "readyState": 25,
+        "action": 1
+    },
+    "watchapp": {
+        "watchface": false
+    },
+    "versionLabel": "1.0",
+    "capabilities": [
+        "configurable"
+    ],
+    "longName": "Lockitron",
+    "shortName": "Lockitron"
+}
