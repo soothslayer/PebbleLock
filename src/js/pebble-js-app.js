@@ -1,97 +1,41 @@
 var initialized = false;
 //lockitron variables
-var lockitronUrl = 'https://api.lockitron.com/v1/locks';
-var lockIndex = 0;
-var lockId = '';
+var lockitronUrl = 'https://api.lockitron.com/v1/locks/';
 var lockNames = [];
 var lockIDs = [];
 var lockCounts = 0;
-var messageBlock = [];
 var readyState = false;
 //load access_token from local Storage
 var accessToken = localStorage.getItem("accessToken");				
-
-//funtion to send a message to the pebble that checks if the line is clear
-var sendMessage = function(dictionary) {
-	for (var key in dictionary) {
-		console.log("Key " + key + " in " + dictionary[key]);
-	}
-	console.log("messageBlock length was " + messageBlock.length);
-	//add the dictionary to the message block
-	messageBlock.push(dictionary);
-	console.log("now before sending the massage it is" + messageBlock.length);
-	//if the pebble is ready to accept messages then send a message
-	//if (readyState) {
-	if (readyState) {
-	readyState = false;
-		Pebble.sendAppMessage(messageBlock[0],
-			function(e) {
-				console.log("1. Successfully delivered message with transactionId=" + e.data.transactionId);
-				readyState = true;
-				if (messageBlock.length !== 0) {
-					messageBlock.shift();
-					sendMessage(messageBlock[0]);
-				}
-			},
-			function(e) {
-				//readyState = true;
-				sendMessage(messageBlock[0]);
-				console.log("Unable to deliver message with transactionId=" + e.data.transactionId + " Error is: " + e.error.message);
-			}
-		);
-	}
-		//and change the state back to not ready;
-		//readyState = false;
-	//otherwise add it to the message block to be sent when the pebble is ready (see eventlistener app message)
-	//} else {
-					////console.log("adding message:" + dictionary.lockName + "to log");
-		//messageBlock.push(dictionary);
-	//}			
-};
-					
-var updateLockIndex = function() {
-  for ( var i = 0, ii = lockNames.length; i < ii; ++i ) {
-    if (lockIDs[i].id === lockId) {
-      lockIndex = i;
-      return;
-   }
-  }
-};
 
 //update the list of locks and send it to the Pebble
 var updateList = function() {
 	////console.log("Updating list of LockNames and LockIDs to send to the Pebble");
 	//send the number of locks
-	console.log("Sending the lock count of " + lockNames.length);
+	//console.log("Sending the lock count of " + lockNames.length);
 	sendAppMessage({"lockCount": lockNames.length});
-	//Pebble.sendAppMessage({"lockCount": lockNames.length, 0: "Hanlon\'s Lockitron",},
-  //function(e) {
-    //console.log("Successfully delivered message with transactionId=" + e.data.transactionId);
-  //},
-  //function(e) {
-    //console.log("Unable to deliver message with transactionId="+ e.data.transactionId+ " Error is: " + e.error.message);
-  //}
-//);
+	
+	//go through each lockName and send it to the Pebble
 	for ( var i = 0, ii = lockNames.length; i < ii; ++i ) {
-		//go through each lockName and send it to the Pebble
 		//console.log("Sending lockNames[" + i + "] = " + lockNames[i]);
 		sendAppMessage({"lockName": lockNames[i]});
 	}
 };
 
-//function to save the lockList and lockId
+//function to save the lockNames and lockId
 var saveState = function() {
 	////console.log("Save LockNames of length:" + lockNames.length + " into memory");
 	for ( var i = 0, ii = lockNames.length; i < ii; ++i ) {
+		//save lockNames into the first 10 index's
 		localStorage.setItem(i, lockNames[i]);
+		//save lockIDs into the next 10
 		localStorage.setItem(i+10, lockIDs[i]);
 	}
 	//save the lockCounts
 	localStorage.setItem("lockCounts", lockNames.length);
-	////var tempLockNames = localStorage.getItem(0);
-	////console.log("Text loading thefirstlockName:" + tempLockNames + " from memory");
-	
 };  
+
+//find String In String function used to extrack lock names and IDs from json locks response
 function findStringInString(needle, haystack) {
 	if (haystack.search(needle + "\"") != -1) {
 		return haystack.substr(haystack.search(needle + "\"")+needle.length+1);
@@ -99,6 +43,8 @@ function findStringInString(needle, haystack) {
 		return -1;
 	}
 }
+
+//find String In Quotes function used to extrack lock names and IDs from json locks response
 function findStringInQuotes(needle) {
 	return needle.match(/"([^"]+)"/)[1];
 }
@@ -151,8 +97,6 @@ var requestLocks = function() {
 			saveState();
 			//send the updated list to the Pebble
 			updateList();
-			//update the lockIndex
-			updateLockIndex();
 		} else {
 			//log the ready state and status for troubleshooting
 			////console.log("Ready State:" + req.readState + " and status:" + req.status);
@@ -203,8 +147,6 @@ var loadState = function() {
 		////console.log("saved names and locks were not null");
 		//lockNames = savedLockNames;
 		//lockIDs = savedLockIds;
-		//why update the lockindex?
-		updateLockIndex();
 		//send the list of lock names and IDs to the pebble
 		////console.log("LockNames Count:" + lockNames.length);
 		updateList();
@@ -237,45 +179,42 @@ Pebble.addEventListener("ready", function() {
 
 //listen for messages from the Pebble
 Pebble.addEventListener("appmessage", function(e) {
-	if (JSON.stringify(e.payload) === "{\"1\":\"unlock\"}") {
-		var req = new XMLHttpRequest();
-		console.log(JSON.stringify(e.payload));
-		req.open('POST', lockitronUrl + "/" + "/unlock?" + accessToken, true);
-		req.onload = function(e) {
-			console.log("onload");
-			if (req.readyState == 4 && req.status == 200) {
-				console.log("4 and 200");
-				if(req.status == 200) {
-					console.log('Unlocked');
-				} else {
-					console.log("Error");
-				}
+	//stringify the payload
+	var message = JSON.stringify(e.payload);
+	//iterate through the locks
+	for ( var i = 0, ii = lockNames.length; i < ii; ++i ) {
+		console.log("message: " + message);
+		//check to see if the lock name mataches the message
+		if (message.indexOf(lockNames[i]) != -1) {
+			console.log("lock being requested is " + lockNames[i]);
+			sendAppMessage({"statusText": "Knock on door!"});
+			if (message.indexOf("lock") == 2) {
+				console.log("locking " + lockNames[i]);
+				sendHttpRequest(lockIDs[i], "lock");
+			} else if (message.indexOf("unlock") == 2) {
+				console.log("unlocking " + lockNames[i]);
+				sendHttpRequest(lockIDs[i], "unlock");
 			} else {
-				console.log(req.readyState);
-				//console.log(req.status);
+				console.log("key was invalid");
 			}
-		};
-	} else if (JSON.stringify(e.payload) === "{\"1\":\"lock\"}") {
-		console.log(JSON.stringify(e.payload));
-		req.open('POST', 'https://api.lockitron.com/v1/locks/9a3f7cd5-7ba1-44a6-ad8c-16d4b8e5ec15/lock?access_token=42b09d104c2a57832ede8c3e0c0152609ffbb16975cdbc686c1bbf886e5e1386', true);
-		req.onload = function(e) {
-			console.log("onload");
-			if (req.readyState == 4 && req.status == 200) {
-				console.log("4 and 200");
-				if(req.status == 200) {
-					console.log('Locked');
-				} else {
-					console.log("Error");
-				}
-			} else {
-				console.log(req.readyState);
-				// console.log(req.status);
-			// }
-		// };
-	// }
-  // req.send(null);
+		}
+	}
+});
+function sendHttpRequest (lockID, action) {
+	var req = new XMLHttpRequest();
+	req.open('POST', lockitronUrl + lockID + "/" + action + "?" + accessToken, true);
+	req.onload = function(e) {
+		if (req.readyState == 4 && (req.status == 200 || req.status == 500)) {
+			//console.log("Success");
+			sendAppMessage({"statusText": action + "ed!"});
+		} else {
+			console.log("Error. readyState:" + req.readyState + " status:" + req.status);
+		}
+	};
+	req.send(null);
 }
-);
+
+//sendAppMessage taken from https://github.com/Neal/pebble-vlc-remote and modified based on the use case
 var maxTriesForSendingAppMessage = 3;
 var timeoutForAppMessageRetry = 3000;
 
@@ -296,15 +235,3 @@ function sendAppMessage(message) {
 		console.log('Failed sending AppMessage ' + JSON.stringify(message));
 	}
 }
-//noteworthy function for sending messages
-//function SendAppMessage (thekey, thecontent) {
-	//console.log("Sending key:" + thekey + " with content:" + thecontent);
-	//var transactionId = Pebble.sendAppMessage({thekey: thecontent},
-		//function(e) {
-			//console.log("Successfully delivered message:"+ e.data.message + " with transactionId=" + e.data.transactionId);
-		//},
-		//function(e) {
-			//console.log("Unable to deliver message with transactionId=" + e.data.transactionId + " Error is: " + e.message);
-		//}
-	//);
-//}
