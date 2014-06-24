@@ -168,7 +168,7 @@ Pebble.addEventListener("ready", function() {
 	if (accessToken === null) {
 		////console.log("Access log is null in memorry");
 		//tell the user on screen that they need to open the PebbleApp
-		sendAppMessage({"selectText": "Open Pebble App to config"});
+		sendAppMessage({"selectText": "Open Pebble App to"});
 		//open the webview for them if you can
 		
 	} else { //if the accessToken is set then load the lockNames and lockIDs

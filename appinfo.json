@@ -1,48 +1,49 @@
 {
     "versionLabel": "1.0",
-    "uuid": "326fccb7-f378-4feb-a406-647eeeccb6c5",
+    "appKeys": {
+        "lockCount": 100,
+        "readyState": 25,
+        "action": 1,
+        "statusText": 90,
+        "unlock": 70,
+        "lock": 60,
+        "selectText": 50,
+        "lockName": 0
+    },
+    "versionCode": 1,
+    "watchapp": {
+        "watchface": false
+    },
+    "longName": "PebbleLock",
+    "shortName": "PebbleLock",
+    "companyName": "Hanlon",
     "capabilities": [
         "configurable"
     ],
     "resources": {
         "media": [
             {
-                "type": "png",
                 "file": "images/lockitron_bw_menu_icon.PNG",
+                "menuIcon": true,
+                "type": "png",
                 "name": "MENUICON"
             },
             {
-                "type": "png",
                 "file": "images/lockitron_bw-sm.PNG",
+                "type": "png",
                 "name": "LOCKITRON_ICON"
             },
             {
-                "type": "png",
                 "file": "images/base_lock.png",
+                "type": "png",
                 "name": "IMAGE_BASE_LOCK"
             },
             {
-                "type": "png",
                 "file": "images/top_lock.png",
+                "type": "png",
                 "name": "IMAGE_TOP_LOCK"
             }
         ]
     },
-    "companyName": "hanlon",
-    "versionCode": 1,
-    "longName": "Lockitron",
-    "shortName": "Lockitron",
-    "appKeys": {
-        "action": 1,
-        "statusText": 90,
-        "lock": 60,
-        "readyState": 25,
-        "selectText": 50,
-        "lockName": 0,
-        "lockCount": 100,
-        "unlock": 70
-    },
-    "watchapp": {
-        "watchface": false
-    }
+    "uuid": "326fccb7-f378-4feb-a406-647eeeccb6c5"
 }

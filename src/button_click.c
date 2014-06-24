@@ -72,6 +72,10 @@ static void lock_names_append(char *data) {
 
 //function to iterate through the locks when the user clicks select button
 static void select_click_handler(ClickRecognizerRef recognizer, void *context) {
+	//check to make sure the select text isn't set to Open Pebble App to config, meaning no locks are loaded
+	if (strcmp(text_layer_get_text(lock_name_text_layer), "Open Pebble App to") == 0 || strcmp(text_layer_get_text(lock_name_text_layer), "Loading locks...") == 0) {
+		return;
+	}
 	//increment the index up to the numberOfLocks then reset
 	++s_active_lock_name_index;
 	if (s_active_lock_name_index >= numberOfLocks) {
@@ -145,12 +149,18 @@ static void window_load(Window *window) {
   layer_add_child(window_layer, bitmap_layer_get_layer(top_unlock_icon_layer));
   top_unlock_icon_bitmap = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_TOP_LOCK);
   bitmap_layer_set_bitmap(top_unlock_icon_layer, top_unlock_icon_bitmap);
+
+  //create the lockitron_icon
+  lockitron_icon_layer = bitmap_layer_create((GRect) { .origin = { 51, 51 }, .size = {45, 45 } });
+  layer_add_child(window_layer, bitmap_layer_get_layer(lockitron_icon_layer));
+  lockitron_icon_bitmap = gbitmap_create_with_resource(RESOURCE_ID_LOCKITRON_ICON);
+  bitmap_layer_set_bitmap(lockitron_icon_layer, lockitron_icon_bitmap);
 	
   //create the lock_name_text_layer
   lock_name_text_layer = text_layer_create((GRect) { .origin = { 0, 30 }, .size = { bounds.size.w, 20 } });
   text_layer_set_text_color(lock_name_text_layer, GColorWhite);
   text_layer_set_background_color(lock_name_text_layer, GColorBlack);
-  text_layer_set_text(lock_name_text_layer, "Open Pebble App to Config");
+  text_layer_set_text(lock_name_text_layer, "Open Pebble App to");
   text_layer_set_text_alignment(lock_name_text_layer, GTextAlignmentCenter);
   layer_add_child(window_layer, text_layer_get_layer(lock_name_text_layer));
 	
@@ -163,18 +173,13 @@ static void window_load(Window *window) {
   layer_add_child(window_layer, text_layer_get_layer(status_text_layer));
 
   //create the lock_count_text_layer
-  lock_count_text_layer = text_layer_create((GRect) { .origin = { 0, 93 }, .size = { bounds.size.w, 20 } });
+  lock_count_text_layer = text_layer_create((GRect) { .origin = { 0, 97 }, .size = { bounds.size.w, 20 } });
   text_layer_set_text_color(lock_count_text_layer, GColorWhite);
   text_layer_set_background_color(lock_count_text_layer, GColorBlack);
   text_layer_set_text(lock_count_text_layer, "");
   text_layer_set_text_alignment(lock_count_text_layer, GTextAlignmentCenter);
   layer_add_child(window_layer, text_layer_get_layer(lock_count_text_layer));
 	
-  //create the lockitron_icon
-  lockitron_icon_layer = bitmap_layer_create(GRect((50), 61, 95, 106));
-  layer_add_child(window_layer, bitmap_layer_get_layer(lockitron_icon_layer));
-  base_lock_icon_bitmap = gbitmap_create_with_resource(RESOURCE_ID_LOCKITRON_ICON);
-  bitmap_layer_set_bitmap(lockitron_icon_layer, lockitron_icon_bitmap);
 }
 
 //destroy all resources when unloading
@@ -194,6 +199,7 @@ static void window_unload(Window *window) {
   bitmap_layer_destroy(top_lock_icon_layer);
   bitmap_layer_destroy(base_lock_icon_layer);
   bitmap_layer_destroy(top_unlock_icon_layer);
+  bitmap_layer_destroy(base_unlock_icon_layer);
   bitmap_layer_destroy(lockitron_icon_layer);
 	
 }
@@ -218,6 +224,9 @@ void out_sent_handler(DictionaryIterator *sent, void *context) {
 		 text_layer_set_text(lock_name_text_layer, text_tuple->value->cstring);
 		 text_layer_set_text(lock_count_text_layer, "");
 		 text_layer_set_text(status_text_layer, "");
+		 if (strcmp(text_layer_get_text(lock_name_text_layer), "Open Pebble App to") == 0) {
+			 text_layer_set_text(lock_count_text_layer, "configure Settings");
+		 }
 	 }
 	 Tuple *numberOfLocks_tuple = dict_find(received, LOCK_COUNT);
      // Act on the found fields received
