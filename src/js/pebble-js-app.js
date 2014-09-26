@@ -1,6 +1,6 @@
 var initialized = false;
 //lockitron variables
-var lockitronUrl = 'https://api.lockitron.com/v1/locks/';
+var lockitronUrl = 'https://api.lockitron.com/v2/locks/';
 var lockNames = [];
 var lockIDs = [];
 var lockCounts = 0;
@@ -35,19 +35,6 @@ var saveState = function() {
 	localStorage.setItem("lockCounts", lockNames.length);
 };  
 
-//find String In String function used to extrack lock names and IDs from json locks response
-function findStringInString(needle, haystack) {
-	if (haystack.search(needle + "\"") != -1) {
-		return haystack.substr(haystack.search(needle + "\"")+needle.length+1);
-	} else {
-		return -1;
-	}
-}
-
-//find String In Quotes function used to extrack lock names and IDs from json locks response
-function findStringInQuotes(needle) {
-	return needle.match(/"([^"]+)"/)[1];
-}
 // Request locks using the accessToken
 var requestLocks = function() {
 	////console.log('requesting locks!');
@@ -58,41 +45,23 @@ var requestLocks = function() {
 	//start a new XMLHttpRequest
 	var req = new XMLHttpRequest();
 	//open a POST request
-	req.open('POST', url, false);
+	req.open('GET', url, false);
 	//what to do once the HttpRequest loads
 	req.onload = function() {
 		////console.log("onload");
 		//if the onload was successful
 		if (req.readyState == 4 && req.status == 200) {
 			//start a lockCount used in the while statement
-			var lockCount = 0;
+			//var lockCount = 0;
 			//empty the lockNames and lockIDs so that they can be filled
 			lockNames = [];
 			lockIDs = [];
-			//store the responseText into a searchString variable that will be modified in case we want to move back to it
-			var searchString = req.responseText;
-			//look for the word lock in searchString before the while loop starts
-			searchString = findStringInString("lock",searchString);
-			//start the while loop
-			while (searchString != -1) {
-				//modify the search string to start after id
-				searchString = findStringInString("id",searchString);
-				//store the id value that was in qoutes into an id variable
-				var id = findStringInQuotes(searchString);
-				//modify the search string to start after name
-				searchString = findStringInString("name",searchString);
-				//store the name value into a variable
-				var name = findStringInQuotes(searchString);
-				//fill the lockNames and lockIDs
-				lockNames[lockCount] = name;
-				lockIDs[lockCount] = id;
-				//log what was put into the lockNames and lockIDs
-				////console.log("LockName[" + lockCount + "]:" + lockNames[lockCount] + " LockIDs[" + lockCount + "]:" + lockIDs[lockCount]);
-				//increment the lockCount
-				lockCount++;
-				//look for the word lock in searchString
-				searchString = findStringInString("lock",searchString);
-			} //end of while statement that checks for not -1
+			//parse the respone text;
+			var JSONresponse = JSON.parse(req.responseText);
+			for (var i = 0, ii = JSONresponse.length; i < JSONresponse.length; i++) {
+				lockNames[ii] = JSONresponse[ii].name;
+				lockIDs[ii] = JSONresponse[ii].id;
+			}
 			//save the lockNames and lockIDs to memory
 			saveState();
 			//send the updated list to the Pebble
@@ -202,11 +171,15 @@ Pebble.addEventListener("appmessage", function(e) {
 });
 function sendHttpRequest (lockID, action) {
 	var req = new XMLHttpRequest();
-	req.open('POST', lockitronUrl + lockID + "/" + action + "?" + accessToken, true);
+	req.open('PUT', lockitronUrl + lockID + "?" + accessToken + "&state=" + action, true);
 	req.onload = function(e) {
 		if (req.readyState == 4 && (req.status == 200 || req.status == 500)) {
-			//console.log("Success");
-			sendAppMessage({"statusText": action + "ed!"});
+			var JSONresponse = JSON.parse(req.responseText);
+			if (JSONresponse.state == action) {
+				sendAppMessage({"statusText": action + "ed!"});
+			} else {
+				sendAppMessage({"statusText": "Failed!"});
+			}
 		} else {
 			console.log("Error. readyState:" + req.readyState + " status:" + req.status);
 		}

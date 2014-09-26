@@ -17,15 +17,11 @@ static ActionBarLayer *actionbar_layer;
 static BitmapLayer *lockitron_lock_bitmap_layer;
 
 #define MAX_NUMBER_OF_LOCKS (10)
-#define MAX_LOCK_NAME_LENGTH (25)
-	
-//define the structure of lockNameItem
-typedef struct {
-	char text[MAX_LOCK_NAME_LENGTH];
-} LockNameList;
+#define MAX_LOCK_NAME_LENGTH (36)
 
-//create an instance of LockNameList to hold all the lock names
-static LockNameList lock_names[MAX_NUMBER_OF_LOCKS];
+//create an array of char to hold the lock names
+char lock_names_list[MAX_NUMBER_OF_LOCKS][MAX_LOCK_NAME_LENGTH];
+
 //create an int value to hold the index of the current active lock
 static int s_active_lock_name_index = 0;
 //sn int value of the number of available locks;
@@ -45,47 +41,33 @@ enum {
 	STATUS_TEXT = 90,
 };
 
-//function of LockNameList to get the lock name at index
-static LockNameList* get_lock_name_at_index(int index) {
-  if (index < 0 || index >= MAX_NUMBER_OF_LOCKS) {
-    return NULL;
-  }
-
-  return &lock_names[index];
-}
-//function of LockNamelist to add a lockName to the list
-static void lock_names_append(char *data) {
-  if (s_active_lock_name_index == MAX_NUMBER_OF_LOCKS) { 
-    return;
-  }
-  strcpy(lock_names[s_active_lock_name_index].text, data);
-  s_active_lock_name_index++;
-}
-
 //function to iterate through the locks when the user clicks select button
 static void select_click_handler(ClickRecognizerRef recognizer, void *context) {
 	//check to make sure the select text isn't set to Open Pebble App to config, meaning no locks are loaded
 	if (strcmp(text_layer_get_text(lock_name_text_layer), "Open Pebble App to") == 0 || strcmp(text_layer_get_text(lock_name_text_layer), "Loading locks...") == 0) {
 		return;
 	}
-	//increment the index up to the numberOfLocks then reset
+
+	//move to the next active lock unless that number is over the number of locks then start over
 	++s_active_lock_name_index;
 	if (s_active_lock_name_index >= numberOfLocks) {
 		s_active_lock_name_index = 0;
 	}
-	//load the name of the active lock into a temporary item
-	LockNameList *temp_item = get_lock_name_at_index(s_active_lock_name_index);
-	//update the text fields
-	text_layer_set_text(lock_name_text_layer, temp_item->text);
-	text_layer_set_text(lock_status_text_layer, "");
-	//snprintf(lock_count_text, 7, "%d of %d", (s_active_lock_name_index+1), numberOfLocks);
-	//text_layer_set_text(lock_count_text_layer, lock_count_text);
+
+	//update the status text to show which lock your on
+	text_layer_set_text(lock_name_text_layer, lock_names_list[s_active_lock_name_index]);
+	snprintf(lock_count_text, 7, "%d of %d", (s_active_lock_name_index+1), numberOfLocks);
+	text_layer_set_text(lock_status_text_layer, lock_count_text);
 }
 
 //send lock command on pressing up button
 static void up_click_handler(ClickRecognizerRef recognizer, void *context) {
+	//check to make sure the select text isn't set to Open Pebble App to config, meaning no locks are loaded
+	if (strcmp(text_layer_get_text(lock_name_text_layer), "Open Pebble App to") == 0 || strcmp(text_layer_get_text(lock_name_text_layer), "Loading locks...") == 0) {
+		return;
+	}
 	//create Tuplet with key LOCK and object of lockName
-	Tuplet value = TupletCString(LOCK_COMMAND, text_layer_get_text(lock_name_text_layer));
+	Tuplet value = TupletCString(LOCK_COMMAND, lock_names_list[s_active_lock_name_index]);
 	dict_write_tuplet(iter, &value);
 	app_message_outbox_send();
 	text_layer_set_text(lock_status_text_layer, "Locking...");
@@ -93,7 +75,11 @@ static void up_click_handler(ClickRecognizerRef recognizer, void *context) {
 
 //send unlock command on down button
 static void down_click_handler(ClickRecognizerRef recognizer, void *context) {
-	Tuplet value = TupletCString(UNLOCK_COMMAND, text_layer_get_text(lock_name_text_layer));
+	//check to make sure the select text isn't set to Open Pebble App to config, meaning no locks are loaded
+	if (strcmp(text_layer_get_text(lock_name_text_layer), "Open Pebble App to") == 0 || strcmp(text_layer_get_text(lock_name_text_layer), "Loading locks...") == 0) {
+		return;
+	}
+	Tuplet value = TupletCString(UNLOCK_COMMAND, lock_names_list[s_active_lock_name_index]);
 	dict_write_tuplet(iter, &value);
 	app_message_outbox_send();
 	text_layer_set_text(lock_status_text_layer, "Unlocking...");
@@ -115,17 +101,18 @@ static void window_load(Window *window) {
 	//set the bounds to the bounds of the window layer
 	//GRect bounds = layer_get_bounds(window_layer);
 	
-  s_res_image_lockitron_lock = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_LOCKITRON_LOCK);
-  s_res_image_locked = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_LOCKED);
-  s_res_image_unlocked = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_UNLOCKED);
-  s_res_gothic_18_bold = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
-  // actionbar_layer
-  actionbar_layer = action_bar_layer_create();
-  action_bar_layer_add_to_window(actionbar_layer, window);
-  action_bar_layer_set_background_color(actionbar_layer, GColorBlack);
-  action_bar_layer_set_icon(actionbar_layer, BUTTON_ID_UP, s_res_image_locked);
-  action_bar_layer_set_icon(actionbar_layer, BUTTON_ID_DOWN, s_res_image_unlocked);
-  layer_add_child(window_get_root_layer(window), (Layer *)actionbar_layer);
+	s_res_image_lockitron_lock = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_LOCKITRON_LOCK);
+	s_res_image_locked = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_LOCKED);
+	s_res_image_unlocked = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_UNLOCKED);
+	s_res_gothic_18_bold = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
+	// actionbar_layer
+	actionbar_layer = action_bar_layer_create();
+	action_bar_layer_add_to_window(actionbar_layer, window);
+	action_bar_layer_set_background_color(actionbar_layer, GColorBlack);
+	action_bar_layer_set_icon(actionbar_layer, BUTTON_ID_UP, s_res_image_locked);
+	action_bar_layer_set_icon(actionbar_layer, BUTTON_ID_DOWN, s_res_image_unlocked);
+	layer_add_child(window_get_root_layer(window), (Layer *)actionbar_layer);
+	action_bar_layer_set_click_config_provider(actionbar_layer, click_config_provider);
 	
   // lockitron_lock_bitmap_layer
   lockitron_lock_bitmap_layer = bitmap_layer_create(GRect(37, 51, 50, 50));
@@ -159,7 +146,6 @@ static void window_load(Window *window) {
 
 //destroy all resources when unloading
 static void window_unload(Window *window) {
-  window_destroy(window);
   action_bar_layer_destroy(actionbar_layer);
   bitmap_layer_destroy(lockitron_lock_bitmap_layer);
   text_layer_destroy(lock_name_text_layer);
@@ -170,14 +156,14 @@ static void window_unload(Window *window) {
 }
 
 void out_sent_handler(DictionaryIterator *sent, void *context) {
-   // outgoing message was delivered
-
+ 	// outgoing message was delivered
+	APP_LOG(APP_LOG_LEVEL_DEBUG, "outgoing message was delivered");
  }
 
 
  void out_failed_handler(DictionaryIterator *failed, AppMessageResult reason, void *context) {
-   // outgoing message failed
-	////APP_LOG(APP_LOG_LEVEL_DEBUG, "failed to send message");
+ 	//outgoing message failed
+	APP_LOG(APP_LOG_LEVEL_DEBUG, "outgoing message failed");
  }
 
 
@@ -187,6 +173,7 @@ void out_sent_handler(DictionaryIterator *sent, void *context) {
      // Act on the found fields received
 	 if (text_tuple) {
 		 text_layer_set_text(lock_count_text_layer, text_tuple->value->cstring);
+		 //COME BACK TO THIS!!!!!!!!!!!!!!!!!!!
 //		 text_layer_set_text(lock_count_text_layer, "");
 		 //text_layer_set_text(lock_status_text_layer, "");
 //		 if (strcmp(text_layer_get_text(lock_name_text_layer), "Open Pebble App to") == 0) {
@@ -199,13 +186,14 @@ void out_sent_handler(DictionaryIterator *sent, void *context) {
 		 numberOfLocks = numberOfLocks_tuple->value->uint8;
 		 text_layer_set_text(lock_name_text_layer, "Loading locks...");
 		 text_layer_set_text(lock_status_text_layer, "Please wait");
-		 //text_layer_set_text(lock_count_text_layer, "");
+		 text_layer_set_text(lock_count_text_layer, "");
 	 }
 	Tuple *lockName_tuple = dict_find(received, LOCK_NAME_TEXT);
 	//if key was 0
 	if (lockName_tuple) {
-		APP_LOG(APP_LOG_LEVEL_DEBUG, "Lock# %d is:%s", s_active_lock_name_index, lockName_tuple->value->cstring);
-		lock_names_append(lockName_tuple->value->cstring);
+		//set the incoming lock name to the next active lock name in the list
+		strcpy(lock_names_list[s_active_lock_name_index], lockName_tuple->value->cstring);
+		s_active_lock_name_index++;
 		//check to see if your at the end of the locks and if so finally update screen with lock name
 		if (s_active_lock_name_index >= numberOfLocks) {
 			text_layer_set_text(lock_name_text_layer, lockName_tuple->value->cstring);
@@ -217,18 +205,22 @@ void out_sent_handler(DictionaryIterator *sent, void *context) {
 	Tuple *status_text_tuple = dict_find(received, STATUS_TEXT);
 	if (status_text_tuple) {
 		//werid things happen if the active lock name index is >= numberOfLocks when updating status
-		if (s_active_lock_name_index >= numberOfLocks) {
-			s_active_lock_name_index = (s_active_lock_name_index - 1); 
-		}
-		text_layer_set_text(lock_status_text_layer, status_text_tuple->value->cstring);
-		//sometimes the select text changes to status text so here I'm setting it back to the current lock name;
-		LockNameList *temp_item = get_lock_name_at_index(s_active_lock_name_index);
-		text_layer_set_text(lock_name_text_layer, temp_item->text);
-		 APP_LOG(APP_LOG_LEVEL_DEBUG, "index:%d", s_active_lock_name_index);
-		
-		//if successfully locked or unlocked then vibrate once
-		if (strcmp(status_text_tuple->value->cstring, "Unlocked!") == 0 || strcmp(status_text_tuple->value->cstring, "Locked!") == 0) {
+//		if (s_active_lock_name_index >= numberOfLocks) {
+//			s_active_lock_name_index = (s_active_lock_name_index - 1); 
+//		}
+
+		APP_LOG(APP_LOG_LEVEL_DEBUG, "Updating status text to:%s", status_text_tuple->value->cstring);
+		if (strcmp(status_text_tuple->value->cstring, "unlocked!") == 0) {
+			text_layer_set_text(lock_status_text_layer, "Unlocked!");
 			vibes_short_pulse();
+		} else if (strcmp(status_text_tuple->value->cstring, "locked!") == 0) {
+			text_layer_set_text(lock_status_text_layer, "Locked!");
+			vibes_short_pulse();
+		} else if (strcmp(status_text_tuple->value->cstring, "Failed!") == 0) {
+			text_layer_set_text(lock_status_text_layer, "Failed!");
+			vibes_short_pulse();
+		} else {
+			text_layer_set_text(lock_status_text_layer, status_text_tuple->value->cstring);
 		}
 
 	 }
