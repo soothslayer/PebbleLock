@@ -158,17 +158,17 @@ var loadState = function() {
 				
 Pebble.addEventListener("ready", function() {
 	//lets start the show
-	////console.log("5. ready called!");
+	
 	//set initialized to true
 	initialized = true;
 	readyState = true;
 	//load access_token from local Storage
 	accessToken = localStorage.getItem("accessToken");
+	console.log("access token:" + accessToken);
 	//if accessToken is null then load the webview to get it.
 	if (accessToken === null) {
-		////console.log("Access log is null in memorry");
 		//tell the user on screen that they need to open the PebbleApp
-		sendAppMessage({"selectText": "Open Pebble App to"});
+		sendAppMessage({"selectText": "accessToken is null"});
 		//open the webview for them if you can
 		
 	} else { //if the accessToken is set then load the lockNames and lockIDs

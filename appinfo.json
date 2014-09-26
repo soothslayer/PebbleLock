@@ -1,49 +1,65 @@
 {
-    "versionLabel": "1.0",
     "appKeys": {
-        "lockCount": 100,
-        "readyState": 25,
         "action": 1,
-        "statusText": 90,
-        "unlock": 70,
         "lock": 60,
+        "lockCount": 100,
+        "lockName": 0,
+        "readyState": 25,
         "selectText": 50,
-        "lockName": 0
+        "statusText": 90,
+        "unlock": 70
     },
-    "versionCode": 1,
-    "watchapp": {
-        "watchface": false
-    },
-    "longName": "PebbleLock",
-    "shortName": "PebbleLock",
-    "companyName": "Hanlon",
     "capabilities": [
         "configurable"
     ],
+    "companyName": "Hanlon",
+    "longName": "PebbleLock",
+    "projectType": "native",
     "resources": {
         "media": [
             {
+                "file": "images/lockitron_icon_bw.png",
+                "name": "IMAGE_LOCKITRON_LOCK",
+                "type": "png"
+            },
+            {
+                "file": "images/unlocked_blackonwhite.png",
+                "name": "IMAGE_UNLOCKED",
+                "type": "png"
+            },
+            {
+                "file": "images/locked_blackonwhite.png",
+                "name": "IMAGE_LOCKED",
+                "type": "png"
+            },
+            {
                 "file": "images/lockitron_bw_menu_icon.PNG",
                 "menuIcon": true,
-                "type": "png",
-                "name": "MENUICON"
+                "name": "MENUICON",
+                "type": "png"
             },
             {
                 "file": "images/lockitron_bw-sm.PNG",
-                "type": "png",
-                "name": "LOCKITRON_ICON"
+                "name": "LOCKITRON_ICON",
+                "type": "png"
             },
             {
                 "file": "images/base_lock.png",
-                "type": "png",
-                "name": "IMAGE_BASE_LOCK"
+                "name": "IMAGE_BASE_LOCK",
+                "type": "png"
             },
             {
                 "file": "images/top_lock.png",
-                "type": "png",
-                "name": "IMAGE_TOP_LOCK"
+                "name": "IMAGE_TOP_LOCK",
+                "type": "png"
             }
         ]
     },
-    "uuid": "326fccb7-f378-4feb-a406-647eeeccb6c5"
+    "shortName": "PebbleLock",
+    "uuid": "326fccb7-f378-4feb-a406-647eeeccb6c5",
+    "versionCode": 1,
+    "versionLabel": "1.0",
+    "watchapp": {
+        "watchface": false
+    }
 }

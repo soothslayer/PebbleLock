@@ -4,25 +4,17 @@ static Window *window;
 
 //create the layers for text
 static TextLayer *lock_name_text_layer;
-static TextLayer *status_text_layer;
+static TextLayer *lock_status_text_layer;
 static TextLayer *lock_count_text_layer;
 static char lock_count_text[7];
 
 //ceate layers for lock image
-static BitmapLayer *base_lock_icon_layer;
-static GBitmap *base_lock_icon_bitmap = NULL;
-static BitmapLayer *top_lock_icon_layer;
-static GBitmap *top_lock_icon_bitmap = NULL;
-
-//create layers for lockitron icon image
-static BitmapLayer *lockitron_icon_layer;
-static GBitmap *lockitron_icon_bitmap = NULL;
-
-//ceate layers for unlock image
-static BitmapLayer *base_unlock_icon_layer;
-static GBitmap *base_unlock_icon_bitmap = NULL;
-static BitmapLayer *top_unlock_icon_layer;
-static GBitmap *top_unlock_icon_bitmap = NULL;
+static GBitmap *s_res_image_lockitron_lock;
+static GBitmap *s_res_image_locked;
+static GBitmap *s_res_image_unlocked;
+static GFont s_res_gothic_18_bold;
+static ActionBarLayer *actionbar_layer;
+static BitmapLayer *lockitron_lock_bitmap_layer;
 
 #define MAX_NUMBER_OF_LOCKS (10)
 #define MAX_LOCK_NAME_LENGTH (25)
@@ -85,9 +77,9 @@ static void select_click_handler(ClickRecognizerRef recognizer, void *context) {
 	LockNameList *temp_item = get_lock_name_at_index(s_active_lock_name_index);
 	//update the text fields
 	text_layer_set_text(lock_name_text_layer, temp_item->text);
-	text_layer_set_text(status_text_layer, "");
-	snprintf(lock_count_text, 7, "%d of %d", (s_active_lock_name_index+1), numberOfLocks);
-	text_layer_set_text(lock_count_text_layer, lock_count_text);
+	text_layer_set_text(lock_status_text_layer, "");
+	//snprintf(lock_count_text, 7, "%d of %d", (s_active_lock_name_index+1), numberOfLocks);
+	//text_layer_set_text(lock_count_text_layer, lock_count_text);
 }
 
 //send lock command on pressing up button
@@ -96,7 +88,7 @@ static void up_click_handler(ClickRecognizerRef recognizer, void *context) {
 	Tuplet value = TupletCString(LOCK_COMMAND, text_layer_get_text(lock_name_text_layer));
 	dict_write_tuplet(iter, &value);
 	app_message_outbox_send();
-	text_layer_set_text(status_text_layer, "Locking...");
+	text_layer_set_text(lock_status_text_layer, "Locking...");
 }
 
 //send unlock command on down button
@@ -104,7 +96,7 @@ static void down_click_handler(ClickRecognizerRef recognizer, void *context) {
 	Tuplet value = TupletCString(UNLOCK_COMMAND, text_layer_get_text(lock_name_text_layer));
 	dict_write_tuplet(iter, &value);
 	app_message_outbox_send();
-	text_layer_set_text(status_text_layer, "Unlocking...");
+	text_layer_set_text(lock_status_text_layer, "Unlocking...");
 }
 
 //configure the functions to call when each button is pressed
@@ -117,91 +109,64 @@ static void click_config_provider(void *context) {
 //function to load the window
 static void window_load(Window *window) {
 	//get the root window layer
-	Layer *window_layer = window_get_root_layer(window);
+	//Layer *window_layer = window_get_root_layer(window);
 	//set the window to black
-	window_set_background_color(window, GColorBlack);
+	window_set_background_color(window, GColorWhite);
 	//set the bounds to the bounds of the window layer
-	GRect bounds = layer_get_bounds(window_layer);
+	//GRect bounds = layer_get_bounds(window_layer);
+	
+  s_res_image_lockitron_lock = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_LOCKITRON_LOCK);
+  s_res_image_locked = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_LOCKED);
+  s_res_image_unlocked = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_UNLOCKED);
+  s_res_gothic_18_bold = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
+  // actionbar_layer
+  actionbar_layer = action_bar_layer_create();
+  action_bar_layer_add_to_window(actionbar_layer, window);
+  action_bar_layer_set_background_color(actionbar_layer, GColorBlack);
+  action_bar_layer_set_icon(actionbar_layer, BUTTON_ID_UP, s_res_image_locked);
+  action_bar_layer_set_icon(actionbar_layer, BUTTON_ID_DOWN, s_res_image_unlocked);
+  layer_add_child(window_get_root_layer(window), (Layer *)actionbar_layer);
+	
+  // lockitron_lock_bitmap_layer
+  lockitron_lock_bitmap_layer = bitmap_layer_create(GRect(37, 51, 50, 50));
+  bitmap_layer_set_bitmap(lockitron_lock_bitmap_layer, s_res_image_lockitron_lock);
+  layer_add_child(window_get_root_layer(window), (Layer *)lockitron_lock_bitmap_layer);
+  
+  // lock_name_text_layer
+  lock_name_text_layer = text_layer_create(GRect(2, 3, 118, 50));
+  text_layer_set_background_color(lock_name_text_layer, GColorClear);
+  text_layer_set_text(lock_name_text_layer, "Loading locks...");
+  text_layer_set_text_alignment(lock_name_text_layer, GTextAlignmentCenter);
+  text_layer_set_font(lock_name_text_layer, s_res_gothic_18_bold);
+  layer_add_child(window_get_root_layer(window), (Layer *)lock_name_text_layer);
+  
+  // lockstatus_text_layer
+  lock_status_text_layer = text_layer_create(GRect(2, 99, 118, 20));
+  text_layer_set_text_alignment(lock_status_text_layer, GTextAlignmentCenter);
+  text_layer_set_font(lock_status_text_layer, s_res_gothic_18_bold);
+  layer_add_child(window_get_root_layer(window), (Layer *)lock_status_text_layer);
+	
+  // lockstatus_text_layer
+  lock_count_text_layer = text_layer_create(GRect(2, 124, 118, 20));
+  text_layer_set_text_alignment(lock_count_text_layer, GTextAlignmentCenter);
+  text_layer_set_font(lock_count_text_layer, s_res_gothic_18_bold);
+  layer_add_child(window_get_root_layer(window), (Layer *)lock_count_text_layer);
 	
 	//now that the window has loaded begin sending messages
 	app_message_outbox_begin(&iter);	
-	
-  //create the base of the lock
-  base_lock_icon_layer = bitmap_layer_create(GRect((bounds.size.w - 18), 9, 18, 14));
-  layer_add_child(window_layer, bitmap_layer_get_layer(base_lock_icon_layer));
-  base_lock_icon_bitmap = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_BASE_LOCK);
-  bitmap_layer_set_bitmap(base_lock_icon_layer, base_lock_icon_bitmap);
-  
-  //create the top of the lock
-  top_lock_icon_layer = bitmap_layer_create(GRect((bounds.size.w - 16), 0, 14, 9));
-  layer_add_child(window_layer, bitmap_layer_get_layer(top_lock_icon_layer));
-  top_lock_icon_bitmap = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_TOP_LOCK);
-  bitmap_layer_set_bitmap(top_lock_icon_layer, top_lock_icon_bitmap);
-	
-  //create the base of the unlock
-  base_unlock_icon_layer = bitmap_layer_create(GRect((bounds.size.w - 18), (bounds.size.h - 14), 18, 14));
-  layer_add_child(window_layer, bitmap_layer_get_layer(base_unlock_icon_layer));
-  base_unlock_icon_bitmap = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_BASE_LOCK);
-  bitmap_layer_set_bitmap(base_unlock_icon_layer, base_unlock_icon_bitmap);
-  
-  //create the top of the unlock
-  top_unlock_icon_layer = bitmap_layer_create(GRect((bounds.size.w - 26), (bounds.size.h - 23), 14, 9));
-  layer_add_child(window_layer, bitmap_layer_get_layer(top_unlock_icon_layer));
-  top_unlock_icon_bitmap = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_TOP_LOCK);
-  bitmap_layer_set_bitmap(top_unlock_icon_layer, top_unlock_icon_bitmap);
 
-  //create the lockitron_icon
-  lockitron_icon_layer = bitmap_layer_create((GRect) { .origin = { 51, 51 }, .size = {45, 45 } });
-  layer_add_child(window_layer, bitmap_layer_get_layer(lockitron_icon_layer));
-  lockitron_icon_bitmap = gbitmap_create_with_resource(RESOURCE_ID_LOCKITRON_ICON);
-  bitmap_layer_set_bitmap(lockitron_icon_layer, lockitron_icon_bitmap);
-	
-  //create the lock_name_text_layer
-  lock_name_text_layer = text_layer_create((GRect) { .origin = { 0, 30 }, .size = { bounds.size.w, 20 } });
-  text_layer_set_text_color(lock_name_text_layer, GColorWhite);
-  text_layer_set_background_color(lock_name_text_layer, GColorBlack);
-  text_layer_set_text(lock_name_text_layer, "Open Pebble App to");
-  text_layer_set_text_alignment(lock_name_text_layer, GTextAlignmentCenter);
-  layer_add_child(window_layer, text_layer_get_layer(lock_name_text_layer));
-	
-  //create the status_text_layer
-  status_text_layer = text_layer_create((GRect) { .origin = { 0, 0 }, .size = { (bounds.size.w - 18), 20 } });
-  text_layer_set_text_color(status_text_layer, GColorWhite);
-  text_layer_set_background_color(status_text_layer, GColorBlack);
-  text_layer_set_text(status_text_layer, "");
-  text_layer_set_text_alignment(status_text_layer, GTextAlignmentCenter);
-  layer_add_child(window_layer, text_layer_get_layer(status_text_layer));
-
-  //create the lock_count_text_layer
-  lock_count_text_layer = text_layer_create((GRect) { .origin = { 0, 97 }, .size = { bounds.size.w, 20 } });
-  text_layer_set_text_color(lock_count_text_layer, GColorWhite);
-  text_layer_set_background_color(lock_count_text_layer, GColorBlack);
-  text_layer_set_text(lock_count_text_layer, "");
-  text_layer_set_text_alignment(lock_count_text_layer, GTextAlignmentCenter);
-  layer_add_child(window_layer, text_layer_get_layer(lock_count_text_layer));
-	
 }
 
 //destroy all resources when unloading
 static void window_unload(Window *window) {
+  window_destroy(window);
+  action_bar_layer_destroy(actionbar_layer);
+  bitmap_layer_destroy(lockitron_lock_bitmap_layer);
   text_layer_destroy(lock_name_text_layer);
-  text_layer_destroy(status_text_layer);
-  text_layer_destroy(lock_count_text_layer);
-	
-  //destroy the bitmaps
-  gbitmap_destroy(top_lock_icon_bitmap);
-  gbitmap_destroy(base_lock_icon_bitmap);
-  gbitmap_destroy(top_unlock_icon_bitmap);
-  gbitmap_destroy(base_unlock_icon_bitmap);
-  gbitmap_destroy(lockitron_icon_bitmap);
-  
-  //destroy the icons
-  bitmap_layer_destroy(top_lock_icon_layer);
-  bitmap_layer_destroy(base_lock_icon_layer);
-  bitmap_layer_destroy(top_unlock_icon_layer);
-  bitmap_layer_destroy(base_unlock_icon_layer);
-  bitmap_layer_destroy(lockitron_icon_layer);
-	
+  text_layer_destroy(lock_status_text_layer);
+  gbitmap_destroy(s_res_image_lockitron_lock);
+  gbitmap_destroy(s_res_image_locked);
+  gbitmap_destroy(s_res_image_unlocked);
 }
 
 void out_sent_handler(DictionaryIterator *sent, void *context) {
@@ -221,20 +186,20 @@ void out_sent_handler(DictionaryIterator *sent, void *context) {
 	 Tuple *text_tuple = dict_find(received, SELECT_TEXT);
      // Act on the found fields received
 	 if (text_tuple) {
-		 text_layer_set_text(lock_name_text_layer, text_tuple->value->cstring);
-		 text_layer_set_text(lock_count_text_layer, "");
-		 text_layer_set_text(status_text_layer, "");
-		 if (strcmp(text_layer_get_text(lock_name_text_layer), "Open Pebble App to") == 0) {
-			 text_layer_set_text(lock_count_text_layer, "configure Settings");
-		 }
+		 text_layer_set_text(lock_count_text_layer, text_tuple->value->cstring);
+//		 text_layer_set_text(lock_count_text_layer, "");
+		 //text_layer_set_text(lock_status_text_layer, "");
+//		 if (strcmp(text_layer_get_text(lock_name_text_layer), "Open Pebble App to") == 0) {
+//			 text_layer_set_text(lock_count_text_layer, "configure Settings");
+//		 }
 	 }
 	 Tuple *numberOfLocks_tuple = dict_find(received, LOCK_COUNT);
      // Act on the found fields received
 	 if (numberOfLocks_tuple) {
 		 numberOfLocks = numberOfLocks_tuple->value->uint8;
 		 text_layer_set_text(lock_name_text_layer, "Loading locks...");
-		 text_layer_set_text(status_text_layer, "Please wait");
-		 text_layer_set_text(lock_count_text_layer, "");
+		 text_layer_set_text(lock_status_text_layer, "Please wait");
+		 //text_layer_set_text(lock_count_text_layer, "");
 	 }
 	Tuple *lockName_tuple = dict_find(received, LOCK_NAME_TEXT);
 	//if key was 0
@@ -244,10 +209,10 @@ void out_sent_handler(DictionaryIterator *sent, void *context) {
 		//check to see if your at the end of the locks and if so finally update screen with lock name
 		if (s_active_lock_name_index >= numberOfLocks) {
 			text_layer_set_text(lock_name_text_layer, lockName_tuple->value->cstring);
-			text_layer_set_text(status_text_layer, "");
+			text_layer_set_text(lock_status_text_layer, "");
 		} //end of checking to see if the active lock is higher than the number of locks
 		snprintf(lock_count_text, 7, "%d of %d", s_active_lock_name_index, numberOfLocks);
-		text_layer_set_text(lock_count_text_layer, lock_count_text);
+		text_layer_set_text(lock_status_text_layer, lock_count_text);
 	} //end of lockName_tuple being true
 	Tuple *status_text_tuple = dict_find(received, STATUS_TEXT);
 	if (status_text_tuple) {
@@ -255,14 +220,14 @@ void out_sent_handler(DictionaryIterator *sent, void *context) {
 		if (s_active_lock_name_index >= numberOfLocks) {
 			s_active_lock_name_index = (s_active_lock_name_index - 1); 
 		}
-		text_layer_set_text(status_text_layer, status_text_tuple->value->cstring);
+		text_layer_set_text(lock_status_text_layer, status_text_tuple->value->cstring);
 		//sometimes the select text changes to status text so here I'm setting it back to the current lock name;
 		LockNameList *temp_item = get_lock_name_at_index(s_active_lock_name_index);
 		text_layer_set_text(lock_name_text_layer, temp_item->text);
 		 APP_LOG(APP_LOG_LEVEL_DEBUG, "index:%d", s_active_lock_name_index);
 		
 		//if successfully locked or unlocked then vibrate once
-		if (strcmp(status_text_tuple->value->cstring, "unlocked!") == 0 || strcmp(status_text_tuple->value->cstring, "locked!") == 0) {
+		if (strcmp(status_text_tuple->value->cstring, "Unlocked!") == 0 || strcmp(status_text_tuple->value->cstring, "Locked!") == 0) {
 			vibes_short_pulse();
 		}
 
@@ -278,6 +243,7 @@ void out_sent_handler(DictionaryIterator *sent, void *context) {
 static void init(void) {
 	//create a window and store it in the window variable
 	window = window_create();
+	window_set_fullscreen(window, false);
 	
 	window_set_click_config_provider(window, click_config_provider);
 	//register all the appMessage event handlers
@@ -302,9 +268,9 @@ static void init(void) {
 static void deinit(void) {
   window_destroy(window);
 }
-
 int main(void) {
   init();
   app_event_loop();
   deinit();
 }
+
