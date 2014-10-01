@@ -21,6 +21,7 @@ static BitmapLayer *lockitron_lock_bitmap_layer;
 
 //create an array of char to hold the lock names
 char lock_names_list[MAX_NUMBER_OF_LOCKS][MAX_LOCK_NAME_LENGTH];
+char lock_status_list[MAX_NUMBER_OF_LOCKS][MAX_LOCK_NAME_LENGTH];
 
 //create an int value to hold the index of the current active lock
 static int s_active_lock_name_index = 0;
@@ -44,7 +45,7 @@ enum {
 //function to iterate through the locks when the user clicks select button
 static void select_click_handler(ClickRecognizerRef recognizer, void *context) {
 	//check to make sure the select text isn't set to Open Pebble App to config, meaning no locks are loaded
-	if (strcmp(text_layer_get_text(lock_name_text_layer), "Open Pebble App to") == 0 || strcmp(text_layer_get_text(lock_name_text_layer), "Loading locks...") == 0) {
+	if (strcmp(text_layer_get_text(lock_name_text_layer), "Open Pebble App to configure") == 0 || strcmp(text_layer_get_text(lock_name_text_layer), "Loading locks...") == 0 || strcmp(text_layer_get_text(lock_name_text_layer), "Pebble disconnected") == 0) {
 		return;
 	}
 
@@ -54,16 +55,22 @@ static void select_click_handler(ClickRecognizerRef recognizer, void *context) {
 		s_active_lock_name_index = 0;
 	}
 
+	if (numberOfLocks == 1) {
+		text_layer_set_text(lock_count_text_layer, "");
+	} else {
+		snprintf(lock_count_text, 7, "%d of %d", (s_active_lock_name_index+1), numberOfLocks);
+		text_layer_set_text(lock_count_text_layer, lock_count_text);
+	}
+
 	//update the status text to show which lock your on
 	text_layer_set_text(lock_name_text_layer, lock_names_list[s_active_lock_name_index]);
-	snprintf(lock_count_text, 7, "%d of %d", (s_active_lock_name_index+1), numberOfLocks);
-	text_layer_set_text(lock_status_text_layer, lock_count_text);
+	text_layer_set_text(lock_status_text_layer, lock_status_list[s_active_lock_name_index]);
 }
 
 //send lock command on pressing up button
 static void up_click_handler(ClickRecognizerRef recognizer, void *context) {
 	//check to make sure the select text isn't set to Open Pebble App to config, meaning no locks are loaded
-	if (strcmp(text_layer_get_text(lock_name_text_layer), "Open Pebble App to") == 0 || strcmp(text_layer_get_text(lock_name_text_layer), "Loading locks...") == 0) {
+	if (strcmp(text_layer_get_text(lock_name_text_layer), "Open Pebble App to configure") == 0 || strcmp(text_layer_get_text(lock_name_text_layer), "Loading locks...") == 0 || strcmp(text_layer_get_text(lock_name_text_layer), "Pebble disconnected") == 0) {
 		return;
 	}
 	//create Tuplet with key LOCK and object of lockName
@@ -76,7 +83,7 @@ static void up_click_handler(ClickRecognizerRef recognizer, void *context) {
 //send unlock command on down button
 static void down_click_handler(ClickRecognizerRef recognizer, void *context) {
 	//check to make sure the select text isn't set to Open Pebble App to config, meaning no locks are loaded
-	if (strcmp(text_layer_get_text(lock_name_text_layer), "Open Pebble App to") == 0 || strcmp(text_layer_get_text(lock_name_text_layer), "Loading locks...") == 0) {
+	if (strcmp(text_layer_get_text(lock_name_text_layer), "Open Pebble App to configure") == 0 || strcmp(text_layer_get_text(lock_name_text_layer), "Loading locks...") == 0 || strcmp(text_layer_get_text(lock_name_text_layer), "Pebble disconnected") == 0) {
 		return;
 	}
 	Tuplet value = TupletCString(UNLOCK_COMMAND, lock_names_list[s_active_lock_name_index]);
@@ -92,14 +99,24 @@ static void click_config_provider(void *context) {
   window_single_click_subscribe(BUTTON_ID_DOWN, down_click_handler);
 }
 
+//configure what to do when the bluetooth connection connects/disconnects
+void bluetooth_connection_handler(bool connected) {
+	if (connected) {
+		vibes_double_pulse();
+	} else {
+		text_layer_set_text(lock_name_text_layer, "Pebble disconnected");
+		text_layer_set_text(lock_status_text_layer, "");
+		text_layer_set_text(lock_count_text_layer, "");
+		vibes_double_pulse();
+	}
+}
+
 //function to load the window
 static void window_load(Window *window) {
-	//get the root window layer
-	//Layer *window_layer = window_get_root_layer(window);
+
 	//set the window to black
 	window_set_background_color(window, GColorWhite);
 	//set the bounds to the bounds of the window layer
-	//GRect bounds = layer_get_bounds(window_layer);
 	
 	s_res_image_lockitron_lock = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_LOCKITRON_LOCK);
 	s_res_image_locked = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_LOCKED);
@@ -139,9 +156,11 @@ static void window_load(Window *window) {
   text_layer_set_font(lock_count_text_layer, s_res_gothic_18_bold);
   layer_add_child(window_get_root_layer(window), (Layer *)lock_count_text_layer);
 	
-	//now that the window has loaded begin sending messages
-	app_message_outbox_begin(&iter);	
+	//subscribe to the bluetooth event service.
+	bluetooth_connection_service_subscribe(bluetooth_connection_handler);		
 
+	//now that the window has loaded begin sending messages
+	app_message_outbox_begin(&iter);
 }
 
 //destroy all resources when unloading
@@ -172,52 +191,65 @@ void out_sent_handler(DictionaryIterator *sent, void *context) {
 	 Tuple *text_tuple = dict_find(received, SELECT_TEXT);
      // Act on the found fields received
 	 if (text_tuple) {
-		 text_layer_set_text(lock_count_text_layer, text_tuple->value->cstring);
-		 //COME BACK TO THIS!!!!!!!!!!!!!!!!!!!
-//		 text_layer_set_text(lock_count_text_layer, "");
-		 //text_layer_set_text(lock_status_text_layer, "");
-//		 if (strcmp(text_layer_get_text(lock_name_text_layer), "Open Pebble App to") == 0) {
-//			 text_layer_set_text(lock_count_text_layer, "configure Settings");
-//		 }
+		if (strcmp(text_tuple->value->cstring, "lock") == 0) {
+			strcpy(lock_status_list[s_active_lock_name_index], "Locked");
+		} else if (strcmp(text_tuple->value->cstring, "unlock") == 0) {
+			strcpy(lock_status_list[s_active_lock_name_index], "Unlocked");
+		} else if (strcmp(text_tuple->value->cstring, "accessToken is null") == 0) {
+			text_layer_set_text(lock_name_text_layer, "Open Pebble App to configure");
+			text_layer_set_text(lock_status_text_layer, "");
+		}
+
 	 }
+	 //received lock count
 	 Tuple *numberOfLocks_tuple = dict_find(received, LOCK_COUNT);
-     // Act on the found fields received
 	 if (numberOfLocks_tuple) {
-		 numberOfLocks = numberOfLocks_tuple->value->uint8;
-		 text_layer_set_text(lock_name_text_layer, "Loading locks...");
-		 text_layer_set_text(lock_status_text_layer, "Please wait");
-		 text_layer_set_text(lock_count_text_layer, "");
+		numberOfLocks = numberOfLocks_tuple->value->uint8;
+		text_layer_set_text(lock_name_text_layer, "Loading locks...");
+		//text_layer_set_text(lock_status_text_layer, "Please wait");
+		snprintf(lock_count_text, 7, "%d of %d", s_active_lock_name_index, numberOfLocks);
+		text_layer_set_text(lock_status_text_layer, lock_count_text);
 	 }
+	//received lock name
 	Tuple *lockName_tuple = dict_find(received, LOCK_NAME_TEXT);
-	//if key was 0
 	if (lockName_tuple) {
 		//set the incoming lock name to the next active lock name in the list
 		strcpy(lock_names_list[s_active_lock_name_index], lockName_tuple->value->cstring);
+
+		//increment the count for next time
 		s_active_lock_name_index++;
-		//check to see if your at the end of the locks and if so finally update screen with lock name
-		if (s_active_lock_name_index >= numberOfLocks) {
-			text_layer_set_text(lock_name_text_layer, lockName_tuple->value->cstring);
-			text_layer_set_text(lock_status_text_layer, "");
-		} //end of checking to see if the active lock is higher than the number of locks
+
 		snprintf(lock_count_text, 7, "%d of %d", s_active_lock_name_index, numberOfLocks);
 		text_layer_set_text(lock_status_text_layer, lock_count_text);
+		//check to see if your at the end of the locks and if so finally update screen with lock name and get rid of Please 
+		if (s_active_lock_name_index >= numberOfLocks) {
+			s_active_lock_name_index = 0;
+
+			text_layer_set_text(lock_name_text_layer, lock_names_list[s_active_lock_name_index]);
+			text_layer_set_text(lock_status_text_layer, lock_status_list[s_active_lock_name_index]);
+			if (numberOfLocks == 1) {
+				text_layer_set_text(lock_count_text_layer, "");
+			} else {
+				snprintf(lock_count_text, 7, "%d of %d", (s_active_lock_name_index+1), numberOfLocks);
+				text_layer_set_text(lock_count_text_layer, lock_count_text);
+			}
+		} //end of checking to see if the active lock is higher than the number of locks
+		
 	} //end of lockName_tuple being true
 	Tuple *status_text_tuple = dict_find(received, STATUS_TEXT);
 	if (status_text_tuple) {
-		//werid things happen if the active lock name index is >= numberOfLocks when updating status
-//		if (s_active_lock_name_index >= numberOfLocks) {
-//			s_active_lock_name_index = (s_active_lock_name_index - 1); 
-//		}
 
 		APP_LOG(APP_LOG_LEVEL_DEBUG, "Updating status text to:%s", status_text_tuple->value->cstring);
-		if (strcmp(status_text_tuple->value->cstring, "unlocked!") == 0) {
-			text_layer_set_text(lock_status_text_layer, "Unlocked!");
+		if (strcmp(status_text_tuple->value->cstring, "unlock") == 0) {
+			text_layer_set_text(lock_status_text_layer, "Unlocked");
+			strcpy(lock_status_list[s_active_lock_name_index], "Unlocked"); 
 			vibes_short_pulse();
-		} else if (strcmp(status_text_tuple->value->cstring, "locked!") == 0) {
-			text_layer_set_text(lock_status_text_layer, "Locked!");
+		} else if (strcmp(status_text_tuple->value->cstring, "lock") == 0) {
+			text_layer_set_text(lock_status_text_layer, "Locked");
+			strcpy(lock_status_list[s_active_lock_name_index], "Locked"); 
 			vibes_short_pulse();
-		} else if (strcmp(status_text_tuple->value->cstring, "Failed!") == 0) {
-			text_layer_set_text(lock_status_text_layer, "Failed!");
+		} else if (strcmp(status_text_tuple->value->cstring, "Failed") == 0) {
+			text_layer_set_text(lock_status_text_layer, "Failed");
 			vibes_short_pulse();
 		} else {
 			text_layer_set_text(lock_status_text_layer, status_text_tuple->value->cstring);
@@ -228,8 +260,7 @@ void out_sent_handler(DictionaryIterator *sent, void *context) {
 
 
  void in_dropped_handler(AppMessageResult reason, void *context) {
-   // incoming message dropped
-	////APP_LOG(APP_LOG_LEVEL_DEBUG, "message dropped");
+	APP_LOG(APP_LOG_LEVEL_DEBUG, "message dropped");
  }
 
 static void init(void) {
@@ -265,4 +296,3 @@ int main(void) {
   app_event_loop();
   deinit();
 }
-
